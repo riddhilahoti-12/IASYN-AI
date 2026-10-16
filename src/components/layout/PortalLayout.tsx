@@ -1,15 +1,46 @@
 import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { Footer } from './Footer';
 import { DisclaimerBanner } from '../feedback/DisclaimerBanner';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
+import { Activity, ShieldAlert } from 'lucide-react';
 
 export const PortalLayout: React.FC<{ expectedRole: UserRole }> = ({ expectedRole }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { activeRole } = useAuth();
+  const { currentUser, isAuthenticated, isInitialized } = useAuth();
+  const location = useLocation();
+
+  // 1. Loading state during session restoration
+  if (!isInitialized) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 text-slate-800">
+        <div className="flex flex-col items-center gap-4 p-8 rounded-2xl bg-white border border-slate-200 shadow-sm max-w-sm text-center">
+          <div className="w-12 h-12 rounded-2xl bg-brand-50 border border-brand-200 flex items-center justify-center text-brand-600 animate-pulse">
+            <Activity className="w-6 h-6 animate-spin" />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-900 text-sm">Authenticating Clinical Session</h3>
+            <p className="text-xs text-slate-500 mt-1">
+              Verifying cryptographic credentials and clinical permissions with IASYN backend...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. Unauthenticated check
+  if (!isAuthenticated || !currentUser) {
+    return <Navigate to="/signin" state={{ from: location }} replace />;
+  }
+
+  // 3. Role authorization check: redirect to authorized portal if trying to access unauthorized portal
+  if (currentUser.role !== expectedRole) {
+    return <Navigate to={`/${currentUser.role}`} replace />;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50 text-slate-800">

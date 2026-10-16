@@ -20,14 +20,19 @@ export const Header: React.FC<{ onToggleSidebar?: () => void; isSidebarOpen?: bo
   onToggleSidebar,
   isSidebarOpen,
 }) => {
-  const { currentUser, activeRole, switchRole, logout } = useAuth();
+  const { currentUser, activeRole, login, logout } = useAuth();
   const [isRoleMenuOpen, setIsRoleMenuOpen] = useState(false);
   const navigate = useNavigate();
 
-  const handleRoleSwitch = (newRole: UserRole) => {
-    switchRole(newRole);
+  const handleRoleSwitch = async (newRole: UserRole) => {
     setIsRoleMenuOpen(false);
-    navigate(`/${newRole}`);
+    try {
+      const creds = authService.getDemoCredentials(newRole);
+      const user = await login(creds);
+      navigate(`/${user.role}`);
+    } catch (err) {
+      navigate('/signin');
+    }
   };
 
   const handleLogout = async () => {

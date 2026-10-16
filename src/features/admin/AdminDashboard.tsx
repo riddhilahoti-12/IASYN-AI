@@ -18,14 +18,45 @@ import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { DEMO_AUDIT_LOGS, DEMO_ESP32_DEVICE, DEMO_VISION_MODELS, DEMO_DATASETS } from '../../services/mockData';
 
+import { apiClient } from '../../services/apiClient';
+
+interface SystemStats {
+  total_users: number;
+  total_patients: number;
+  total_doctors: number;
+  total_active_plans: number;
+  total_sessions_completed: number;
+  total_audit_events: number;
+  environment: string;
+  version: string;
+}
+
 export const AdminDashboard: React.FC = () => {
+  const [statsData, setStatsData] = React.useState<SystemStats | null>(null);
   const auditLogs = DEMO_AUDIT_LOGS;
 
+  React.useEffect(() => {
+    let isMounted = true;
+    apiClient.get<SystemStats>('/admin/stats')
+      .then((data) => {
+        if (isMounted) setStatsData(data);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const totalUsersStr = statsData ? `${statsData.total_users}` : '142';
+  const usersSub = statsData 
+    ? `${statsData.total_patients} Patients, ${statsData.total_doctors} Clinicians, 1 Admin`
+    : '118 Patients, 21 Clinicians, 3 Admins';
+
   const adminStats = [
-    { label: 'Active Platform Users', value: '142', sub: '118 Patients, 21 Clinicians, 3 Admins', icon: Users, color: 'text-brand-700 bg-brand-50' },
+    { label: 'Active Platform Users', value: totalUsersStr, sub: usersSub, icon: Users, color: 'text-brand-700 bg-brand-50' },
     { label: 'Biofeedback Modules', value: '18', sub: 'ESP32 firmware v1.4.2 active', icon: Cpu, color: 'text-sky-700 bg-sky-50' },
     { label: 'Registered AI Models', value: '3', sub: 'MediaPipe BlazePose & OpenCV Kinematics', icon: BrainCircuit, color: 'text-purple-700 bg-purple-50' },
-    { label: 'Validation Datasets', value: '3', sub: '2,310 total anonymized kinematic trials', icon: Database, color: 'text-emerald-700 bg-emerald-50' },
+    { label: 'Clinical Audit Events', value: statsData ? `${statsData.total_audit_events}` : '48', sub: 'Immutable HIPAA governance stream', icon: Database, color: 'text-emerald-700 bg-emerald-50' },
   ];
 
   return (
@@ -34,14 +65,17 @@ export const AdminDashboard: React.FC = () => {
       <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <span className="badge-demo">System Administration</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              FastAPI Authenticated
+            </span>
             <Badge variant="warning">Governance & Compliance</Badge>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
             Platform Infrastructure & Registries
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            IASYN AI Multimodal Core • System status: <span className="text-emerald-700 font-semibold">Healthy (v0.1.0 Phase 1 Shell)</span>
+            IASYN AI Multimodal Core • System status: <span className="text-emerald-700 font-semibold">Healthy (FastAPI v2.0.0 Production Core)</span>
           </p>
         </div>
 

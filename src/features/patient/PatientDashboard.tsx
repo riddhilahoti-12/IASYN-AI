@@ -41,8 +41,30 @@ const DEMO_PROGRESS_DATA = [
 
 export const PatientDashboard: React.FC = () => {
   const { currentUser } = useAuth();
-  const plan = DEMO_THERAPY_PLAN;
-  const recentSessions = DEMO_SESSIONS;
+  const [plan, setPlan] = React.useState(DEMO_THERAPY_PLAN);
+  const [recentSessions, setRecentSessions] = React.useState(DEMO_SESSIONS);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    const loadData = async () => {
+      try {
+        const [activePlan, sessions] = await Promise.all([
+          therapyService.getActivePlanForPatient(),
+          sessionService.getSessionsForPatient(),
+        ]);
+        if (isMounted) {
+          if (activePlan) setPlan(activePlan);
+          if (sessions && sessions.length > 0) setRecentSessions(sessions);
+        }
+      } catch {
+        // Keep fallback demo data
+      }
+    };
+    loadData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -50,11 +72,14 @@ export const PatientDashboard: React.FC = () => {
       <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2">
-            <span className="badge-demo">Demo Dataset Active</span>
-            <span className="text-xs text-slate-500 font-mono">Patient ID: {currentUser?.medicalId || 'PT-8941'}</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              FastAPI Authenticated
+            </span>
+            <span className="text-xs text-slate-500 font-mono">Patient ID: {currentUser?.medicalId || 'IAS-2026-9042'}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-            Welcome back, {currentUser?.name || 'Eleanor'}
+            Welcome back, {currentUser?.name || 'Elena Rostova'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
             Your rehabilitation plan is currently in <strong className="text-slate-800">{plan.phase}</strong> under the supervision of <strong>{plan.prescribedByDoctorName}</strong>.

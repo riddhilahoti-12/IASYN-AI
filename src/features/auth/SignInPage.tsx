@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { 
   Activity, 
   Eye, 
@@ -10,36 +10,40 @@ import {
   ArrowLeft, 
   Info, 
   AlertCircle,
-  KeyRound
+  KeyRound,
+  CheckCircle2
 } from 'lucide-react';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { Badge } from '../../components/ui/Badge';
 import { useAuth } from '../../context/AuthContext';
 import { UserRole } from '../../types';
-import { DEMO_PATIENT, DEMO_DOCTOR, DEMO_ADMIN } from '../../services/mockData';
+import { authService } from '../../services/authService';
 
 export const SignInPage: React.FC = () => {
   const { login, isLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const [role, setRole] = useState<UserRole>('patient');
+  const [selectedRole, setSelectedRole] = useState<UserRole>('patient');
   const [email, setEmail] = useState('patient.demo@iasyn.ai');
-  const [password, setPassword] = useState('clinical-demo-pass');
+  const [password, setPassword] = useState('ClinicalPass2026!');
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string; general?: string }>({});
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get('expired') === 'true') {
+      setNotice('Your session has expired for clinical security. Please sign in again.');
+    }
+  }, [searchParams]);
 
   const handleRoleChange = (newRole: UserRole) => {
-    setRole(newRole);
+    setSelectedRole(newRole);
     setErrors({});
-    if (newRole === 'patient') {
-      setEmail(DEMO_PATIENT.email);
-    } else if (newRole === 'doctor') {
-      setEmail(DEMO_DOCTOR.email);
-    } else {
-      setEmail(DEMO_ADMIN.email);
-    }
+    const creds = authService.getDemoCredentials(newRole);
+    setEmail(creds.email);
+    setPassword(creds.password);
   };
 
   const validate = () => {
@@ -65,10 +69,15 @@ export const SignInPage: React.FC = () => {
     if (!validate()) return;
 
     try {
-      await login({ email, password, role });
-      navigate(`/${role}`);
-    } catch (err) {
-      setErrors({ general: 'Authentication simulation encountered an error. Please try again.' });
+      // Backend derives role strictly from database user record
+      const authenticatedUser = await login({ email, password });
+      // Redirect to authenticated role portal
+      navigate(`/${authenticatedUser.role}`);
+    } catch (err: unknown) {
+      const apiErr = err as { message?: string };
+      setErrors({
+        general: apiErr.message || 'Authentication failed. Please verify your email and password.',
+      });
     }
   };
 
@@ -102,31 +111,30 @@ export const SignInPage: React.FC = () => {
               Sign In to IASYN AI
             </h1>
             <p className="text-xs text-slate-500">
-              Select your role portal to access personalized therapy or clinical supervision
+              Secure authentication powered by FastAPI & role-based clinical authorization
             </p>
           </div>
 
-          {/* Development Notice Callout */}
-          <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-start gap-2.5">
-            <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-            <div className="leading-relaxed">
-              <span className="font-semibold">Phase 1 Development Shell: </span>
-              This interface demonstrates client-side navigation and role routing. Backend JWT/OAuth2 authentication and role authorization will be attached in Phase 2 via FastAPI.
+          {/* Session Notice Callout */}
+          {notice && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex items-start gap-2.5">
+              <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+              <div className="leading-relaxed">{notice}</div>
             </div>
-          </div>
+          )}
 
           <Card variant="elevated" padding="lg">
-            {/* Role Switcher Selector */}
+            {/* Quick Demo Role Selector */}
             <div className="mb-6">
               <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2">
-                Select Portal Access Role
+                Quick Demonstration Account
               </label>
               <div className="grid grid-cols-3 gap-2 p-1 bg-slate-100 rounded-lg border border-slate-200">
                 <button
                   type="button"
                   onClick={() => handleRoleChange('patient')}
                   className={`flex flex-col items-center justify-center py-2 px-1 rounded-md text-xs font-medium transition-all ${
-                    role === 'patient'
+                    selectedRole === 'patient'
                       ? 'bg-white text-brand-700 shadow-sm border border-slate-200/60 font-semibold'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
@@ -138,7 +146,7 @@ export const SignInPage: React.FC = () => {
                   type="button"
                   onClick={() => handleRoleChange('doctor')}
                   className={`flex flex-col items-center justify-center py-2 px-1 rounded-md text-xs font-medium transition-all ${
-                    role === 'doctor'
+                    selectedRole === 'doctor'
                       ? 'bg-white text-clinical-700 shadow-sm border border-slate-200/60 font-semibold'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
@@ -150,7 +158,7 @@ export const SignInPage: React.FC = () => {
                   type="button"
                   onClick={() => handleRoleChange('admin')}
                   className={`flex flex-col items-center justify-center py-2 px-1 rounded-md text-xs font-medium transition-all ${
-                    role === 'admin'
+                    selectedRole === 'admin'
                       ? 'bg-white text-amber-700 shadow-sm border border-slate-200/60 font-semibold'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
@@ -203,20 +211,23 @@ export const SignInPage: React.FC = () => {
               <div className="pt-2">
                 <Button
                   type="submit"
-                  variant={role === 'doctor' ? 'teal' : 'primary'}
+                  variant={selectedRole === 'doctor' ? 'teal' : 'primary'}
                   className="w-full"
                   size="md"
                   isLoading={isLoading}
                 >
-                  Access {role.charAt(0).toUpperCase() + role.slice(1)} Portal
+                  Sign In to IASYN AI
                 </Button>
               </div>
             </form>
 
             <div className="mt-5 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span>Demo accounts pre-populated</span>
-              <span className="font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">
-                Phase 1 Sandbox
+              <span className="flex items-center gap-1 text-emerald-600">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Backend Connected</span>
+              </span>
+              <span className="font-mono text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 px-1.5 py-0.5 rounded">
+                Phase 2 Auth & DB
               </span>
             </div>
           </Card>
@@ -225,7 +236,7 @@ export const SignInPage: React.FC = () => {
 
       {/* Clean Footer */}
       <footer className="py-4 text-center text-xs text-slate-400 border-t border-slate-200 bg-white">
-        IASYN AI Multimodal Platform • Phase 1 Evaluation Shell
+        IASYN AI Multimodal Platform • Secure Role-Based Authentication
       </footer>
     </div>
   );

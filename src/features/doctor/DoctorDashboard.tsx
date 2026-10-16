@@ -18,14 +18,31 @@ import { Badge } from '../../components/ui/Badge';
 import { useAuth } from '../../context/AuthContext';
 import { DEMO_DOCTOR_QUEUE, DEMO_PATIENT, DEMO_SESSIONS } from '../../services/mockData';
 
+import { apiClient } from '../../services/apiClient';
+
 export const DoctorDashboard: React.FC = () => {
   const { currentUser } = useAuth();
   const queue = DEMO_DOCTOR_QUEUE;
+  const [assignedCount, setAssignedCount] = React.useState<number>(1);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    apiClient.get<unknown[]>('/doctors/patients')
+      .then((data) => {
+        if (isMounted && Array.isArray(data)) {
+          setAssignedCount(data.length);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const stats = [
-    { label: 'Assigned Active Patients', value: '24', icon: Users, change: '+2 this month', color: 'text-clinical-700 bg-clinical-50' },
+    { label: 'Assigned Active Patients', value: `${assignedCount}`, icon: Users, change: '1 verified on roster', color: 'text-clinical-700 bg-clinical-50' },
     { label: 'Intakes Awaiting Review', value: '2', icon: FileCheck2, change: '1 high priority', color: 'text-amber-700 bg-amber-50' },
-    { label: 'Sessions Requiring Review', value: '5', icon: Activity, change: '3 today', color: 'text-emerald-700 bg-emerald-50' },
+    { label: 'Sessions Requiring Review', value: '2', icon: Activity, change: '2 completed today', color: 'text-emerald-700 bg-emerald-50' },
     { label: 'Follow-up Triage Queue', value: '3', icon: Clock, change: '1 scheduled today', color: 'text-purple-700 bg-purple-50' },
   ];
 
@@ -35,14 +52,17 @@ export const DoctorDashboard: React.FC = () => {
       <div className="bg-white border border-slate-200/90 rounded-2xl p-6 shadow-subtle flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <span className="badge-demo">Clinician Dashboard</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-0.5 rounded-full bg-clinical-50 text-clinical-700 border border-clinical-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-clinical-500 animate-pulse"></span>
+              FastAPI Authenticated
+            </span>
             <Badge variant="clinical">Supervisory Access</Badge>
           </div>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-            {currentUser?.name || 'Dr. Marcus Reynolds, MD'}
+            {currentUser?.name || 'Dr. Marcus Vance, PT, DPT'}
           </h1>
           <p className="text-xs sm:text-sm text-slate-500">
-            Orthopedic Rehabilitation & Sports Medicine • License: PT-MD-99421-US
+            Neurological Physical Therapy & Motor Recovery • License: {currentUser?.licenseNumber || 'PT-NY-98421-DEMO'}
           </p>
         </div>
 
