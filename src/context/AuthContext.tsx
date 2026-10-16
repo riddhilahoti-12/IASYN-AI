@@ -1,55 +1,77 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, UserRole } from '../types';
 import { authService, LoginCredentials } from '../services/authService';
+import { setUnauthorizedHandler, getApiAuthToken } from '../services/apiClient';
 
 interface AuthContextType {
   currentUser: UserProfile | null;
   activeRole: UserRole;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (credentials: LoginCredentials) => Promise<void>;
+  isInitialized: boolean;
+  login: (credentials: LoginCredentials) => Promise<UserProfile>;
   logout: () => Promise<void>;
-  switchRole: (role: UserRole) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const AUTH_STORAGE_KEY = 'iasyn_auth_user_v1';
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
-    try {
-      const saved = localStorage.getItem(AUTH_STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // Fallback
-    }
-    // Default to Patient demo user for initial convenient preview
-    return authService.getDemoUserByRole('patient');
-  });
-
-  const [activeRole, setActiveRole] = useState<UserRole>(currentUser ? currentUser.role : 'patient');
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [activeRole, setActiveRole] = useState<UserRole>('patient');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
+  // Initialize and check existing session
   useEffect(() => {
-    if (currentUser) {
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(currentUser));
-      setActiveRole(currentUser.role);
-      setIsAuthenticated(true);
-    } else {
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-      setIsAuthenticated(false);
-    }
-  }, [currentUser]);
+    let isMounted = true;
 
-  const login = async (credentials: LoginCredentials) => {
+    // Set callback if any request encounters a 401 Unauthorized
+    setUnauthorizedHandler(() => {
+      if (isMounted) {
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+      }
+    });
+
+    const initAuth = async () => {
+      const existingToken = getApiAuthToken();
+      if (existingToken) {
+        try {
+          const user = await authService.getCurrentUser();
+          if (user && isMounted) {
+            setCurrentUser(user);
+            setActiveRole(user.role);
+            setIsAuthenticated(true);
+          }
+        } catch {
+          // Token invalid or expired
+          if (isMounted) {
+            setCurrentUser(null);
+            setIsAuthenticated(false);
+          }
+        }
+      }
+      if (isMounted) {
+        setIsInitialized(true);
+      }
+    };
+
+    initAuth();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const login = async (credentials: LoginCredentials): Promise<UserProfile> => {
     setIsLoading(true);
     try {
       const user = await authService.login(credentials);
       setCurrentUser(user);
-      setActiveRole(credentials.role);
+      setActiveRole(user.role);
       setIsAuthenticated(true);
+      return user;
     } finally {
       setIsLoading(false);
     }
@@ -66,12 +88,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const switchRole = (newRole: UserRole) => {
-    const user = authService.getDemoUserByRole(newRole);
-    setCurrentUser(user);
-    setActiveRole(newRole);
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -79,9 +95,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         activeRole,
         isAuthenticated,
         isLoading,
+        isInitialized,
         login,
         logout,
-        switchRole,
       }}
     >
       {children}

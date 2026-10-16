@@ -1,145 +1,208 @@
 # IASYN AI — Multimodal Physiotherapy & Recovery Platform
 
-> **Phase 1: Project Foundation, Clinical UI Design System & Navigation Architecture**
+> **Phase 2 Complete: Backend Architecture, Secure Authentication & Database Persistence**
 
 IASYN AI is an AI-driven multimodal platform for personalized physiotherapy, guided therapy monitoring, movement analysis, and longitudinal recovery assessment. The platform bridges clinician-directed care and patient rehabilitation through objective kinematic metrics, explainable clinical intelligence, and hardware biofeedback.
 
 ---
 
-## 1. Phase 1 Architecture Overview
+## 1. Architecture Overview
 
-- **Frontend Core**: React 18 + TypeScript + Vite
+### Frontend Core
+- **Framework**: React 18 + TypeScript + Vite
 - **UI Design System**: Tailwind CSS configured with a dedicated Light-Themed Healthcare Design System (white/soft slate surfaces, deep charcoal typography, clinical teal `#0D9488` and medical blue `#0284C7` primary accents, mint `#10B981` and lavender `#8B5CF6` chart accents).
-- **Client Routing**: React Router v6 with separated portal shells:
+- **Client Routing & RBAC Guards**: React Router v6 with strict permission-based portal wrappers:
   - **Public Landing Page** (`/`)
-  - **Sign-In Development Shell** (`/signin`)
-  - **Patient Portal Shell** (`/patient/*`)
-  - **Doctor Portal Shell** (`/doctor/*`)
-  - **Admin Portal Shell** (`/admin/*`)
+  - **Secure Sign-In** (`/signin`)
+  - **Patient Portal Shell** (`/patient/*`) — strictly for role `PATIENT`
+  - **Doctor Portal Shell** (`/doctor/*`) — strictly for role `DOCTOR`
+  - **Admin Portal Shell** (`/admin/*`) — strictly for role `ADMIN`
 - **Iconography**: Lucide React
 - **Longitudinal Charts**: Recharts with observable joint range of motion (ROM) and patient pain VAS trajectories.
-- **Future Integration Readiness**: Clean, typed domain models in `src/types/` and service boundary stubs in `src/services/` (prepared for Phase 2 FastAPI, Phase 3 MediaPipe/OpenCV, and Phase 4 ESP32 serial communication).
+- **Typed API Client**: Fetch-based client with HttpOnly cookie handling, Bearer token fallback, automatic session-expiration interception (401 redirection), and Vite reverse-proxy integration.
+
+### Backend Core (Phase 2)
+- **Framework**: FastAPI (Python 3.11 / 3.12 compatible)
+- **Validation & Serialization**: Pydantic v2 with `ConfigDict(from_attributes=True)`
+- **ORM & Database**: SQLAlchemy 2 + Alembic schema migrations
+- **Storage Target**: SQLite default for local development (`backend/iasyn_dev.db`), PostgreSQL connection string compatible for cloud staging/production.
+- **Security & Cryptography**: Direct `bcrypt` password hashing, signed JWT session tokens, and secure `HttpOnly`, `SameSite=Lax` cookies.
+- **Clinical Governance**: HIPAA-aligned audit log stream (`AuditLog`) capturing security and clinical events.
+- **Tenant & Clinical Isolation**: Strict backend enforcement preventing cross-patient record access and barring clinicians from unassigned patient dossiers.
 
 ---
 
-## 2. Directory & Component Structure
+## 2. Directory Structure
 
 ```
-src/
-├── app/
-├── components/
-│   ├── feedback/
-│   │   ├── DisclaimerBanner.tsx     # Clinical & investigational safety disclosure
-│   │   ├── FeaturePlaceholder.tsx   # Transparent future-phase contract component
-│   │   └── EmptyState.tsx           # Standardized clinical empty state
-│   ├── layout/
-│   │   ├── Header.tsx               # Top navigation with role switcher & user menu
-│   │   ├── Sidebar.tsx              # Portal-specific navigation sidebar
-│   │   ├── Footer.tsx               # Clinical safety notes & regulatory alignment
-│   │   └── PortalLayout.tsx         # Composite shell wrapper
-│   └── ui/
-│       ├── Badge.tsx                # Status indicators (active, pending, warning, clinical)
-│       ├── Button.tsx               # Accessible primary, secondary, teal, outline buttons
-│       ├── Card.tsx                 # Consistent card panels with subtle borders & shadow
-│       └── Input.tsx                # Accessible input with labels, validation, and icons
-├── context/
-│   └── AuthContext.tsx              # Phase 1 demonstration auth & portal switching
-├── features/
-│   ├── auth/
-│   │   └── SignInPage.tsx           # Sign-in form with Patient/Doctor/Admin role toggling
-│   ├── landing/
-│   │   └── LandingPage.tsx          # Public product landing, modalities, workflow
-│   ├── patient/
-│   │   ├── PatientDashboard.tsx     # Patient home, active plan, next session, ROM chart
-│   │   ├── PatientProfilePage.tsx   # Demographics, MRN, rehabilitation goals
-│   │   ├── PatientIntakePage.tsx    # Baseline mobility survey, contraindications
-│   │   ├── PatientTherapyPlanPage.tsx # Detailed prescribed exercises & dosage
-│   │   ├── PatientTherapyStudioPage.tsx # Studio launcher shell & pre-flight hardware checks
-│   │   ├── PatientSessionHistoryPage.tsx # Audit log of past sessions & clinician notes
-│   │   ├── PatientProgressReportsPage.tsx # Longitudinal ROM & adherence area charts
-│   │   └── PatientAIAssistantPage.tsx   # Explainable assistant with cited clinical guidelines
-│   ├── doctor/
-│   │   ├── DoctorDashboard.tsx      # Assigned patient metrics, triage queues
-│   │   ├── DoctorPatientListPage.tsx # Searchable patient roster & risk stratification
-│   │   ├── DoctorIntakeReviewPage.tsx # Intake clearance & contraindication screening
-│   │   ├── DoctorPlanManagementPage.tsx # Prescription editor & protocol builder
-│   │   ├── DoctorSessionAnalysisPage.tsx # Session kinematic inspection & notes
-│   │   ├── DoctorProgressReportsPage.tsx # Cohort analytics & recovery comparison
-│   │   └── DoctorFollowUpQueuePage.tsx # Clinical intervention queue
-│   └── admin/
-│       ├── AdminDashboard.tsx       # System health, fleet status, audit summary
-│       ├── AdminUserManagementPage.tsx # User accounts & permission administration
-│       ├── AdminDoctorVerificationPage.tsx # Medical board credential verification
-│       ├── AdminTherapyCataloguePage.tsx # Standardized exercise taxonomy
-│       ├── AdminDeviceManagementPage.tsx # ESP32 biofeedback fleet & USB serial
-│       ├── AdminAIModelRegistryPage.tsx # MediaPipe & OpenCV vision model zoo
-│       ├── AdminDatasetRegistryPage.tsx # Anonymized kinematic cohorts & IRB consent
-│       ├── AdminAuditLogsPage.tsx    # HIPAA compliant audit trail
-│       └── AdminSystemSettingsPage.tsx # Platform endpoints & retention policies
-├── routes/
-│   └── AppRoutes.tsx                # Full application routing configuration
-├── services/
-│   ├── authService.ts               # Phase 1 mock authentication provider
-│   ├── therapyService.ts            # Therapy plan and exercise queries
-│   ├── sessionService.ts            # Session record persistence stub
-│   ├── visionService.ts             # Web camera check & vision model metadata
-│   ├── hardwareService.ts           # Web Serial capability check & ESP32 status
-│   ├── aiAssistantService.ts        # Explainable clinical guidance with citations
-│   └── mockData.ts                  # Clinically realistic demo datasets
-├── types/
-│   └── index.ts                     # Strict TypeScript domain interfaces
-├── utils/
-│   └── lodash-shims.js              # Standalone lodash helper library for Recharts
-├── App.tsx                          # App root with BrowserRouter and AuthProvider
-├── index.css                        # Tailwind directives & healthcare design tokens
-└── main.tsx                         # Client application entry point
+IASYN AI/
+├── backend/
+│   ├── alembic/                 # Alembic migration environment & scripts
+│   │   ├── versions/            # Migration revisions (e.g., initial_schema)
+│   │   └── env.py
+│   ├── app/
+│   │   ├── api/
+│   │   │   ├── deps.py          # DB session, JWT decode & role dependencies
+│   │   │   └── v1/
+│   │   │       ├── admin.py     # User status, doctor verification, audit logs, system stats
+│   │   │       ├── auth.py      # /login, /logout, /me with role derivation
+│   │   │       ├── doctors.py   # Assigned patients, clinical reviews, session feedback
+│   │   │       ├── patients.py  # Self-profile, assigned plans, session logs
+│   │   │       ├── router.py    # Master v1 router
+│   │   │       ├── sessions.py  # Rehab session records
+│   │   │       └── therapy_plans.py # Prescription CRUD & clinician approval
+│   │   ├── core/
+│   │   │   ├── config.py        # Pydantic Settings & environment variables
+│   │   │   └── security.py      # Bcrypt hashing & PyJWT token generator
+│   │   ├── db/
+│   │   │   ├── base.py          # Base model registry for Alembic
+│   │   │   ├── seed.py          # Fictional demonstration account seeder
+│   │   │   └── session.py       # SQLAlchemy 2 engine & session factory
+│   │   ├── models/              # SQLAlchemy 2 models (User, PatientProfile, DoctorProfile, etc.)
+│   │   ├── schemas/             # Pydantic v2 DTOs & validation schemas
+│   │   ├── services/            # Clinical audit service
+│   │   └── main.py              # FastAPI app lifespan, CORS, healthcheck
+│   ├── tests/                   # Pytest test suite (15 automated tests)
+│   │   ├── conftest.py
+│   │   ├── test_auth.py
+│   │   ├── test_roles.py
+│   │   └── test_therapy_plans.py
+│   ├── requirements.txt         # Pinned backend dependencies
+│   └── .env.example             # Backend configuration template
+├── src/                         # React 18 Frontend
+│   ├── components/              # UI components, layout shells, feedback banners
+│   ├── context/                 # AuthContext (real backend session tracking)
+│   ├── features/                # Portals (Patient, Doctor, Admin, Auth, Landing)
+│   ├── routes/                  # AppRoutes with ProtectedRoute wrappers
+│   ├── services/                # apiClient, authService, therapyService, sessionService
+│   └── types/                   # TypeScript clinical models & interfaces
+├── package.json
+├── vite.config.ts               # Vite bundler with /api proxy to FastAPI
+└── README.md
 ```
 
 ---
 
-## 3. Installation & Running Locally
+## 3. Quick Start & Setup
 
 ### Prerequisites
-- Node.js (v18.0.0 or later, v24 recommended)
-- npm (v9.0.0 or later)
+- Node.js (v18+ or v20+)
+- Python 3.11 or 3.12 (or `uv` package manager)
 
-### Install Dependencies
-```powershell
-npm install
-```
+### Backend Setup
 
-### Start Development Server
-```powershell
-npm run dev
-```
-The application will launch at `http://127.0.0.1:5173/`.
+1. **Navigate to the backend directory and create virtual environment**:
+   ```bash
+   cd backend
+   # Using uv:
+   uv venv .venv --python 3.12
+   # Or using standard python:
+   python -m venv .venv
+   ```
 
-### Run TypeScript Type Check & Production Build
-```powershell
-npm run build
-```
+2. **Activate the virtual environment**:
+   - **Windows**:
+     ```powershell
+     .venv\Scripts\activate
+     ```
+   - **macOS/Linux**:
+     ```bash
+     source .venv/bin/activate
+     ```
+
+3. **Install dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   # Or with uv:
+   uv pip install -r requirements.txt
+   ```
+
+4. **Environment Configuration**:
+   ```bash
+   cp .env.example .env
+   ```
+
+5. **Run database migrations**:
+   ```bash
+   alembic upgrade head
+   ```
+
+6. **Seed demonstration clinical accounts**:
+   ```bash
+   python -m app.db.seed
+   ```
+
+7. **Start the FastAPI backend server**:
+   ```bash
+   uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+   ```
+   - Interactive OpenAPI documentation available at: `http://127.0.0.1:8000/api/v1/docs`
+   - Healthcheck: `http://127.0.0.1:8000/health`
 
 ---
 
-## 4. Acceptance Criteria Checklist & Phase 1 Verification
+### Frontend Setup
 
-| Requirement | Status | Notes |
-|---|---|---|
-| Starts using documented commands | Verified | Runs via `npm run dev` and `npm run build` |
-| Builds without TypeScript errors | Verified | Clean compilation with 0 TS errors |
-| Navigation items route to correct pages | Verified | 24 working routes configured |
-| Three portal shells separated | Verified | Patient, Doctor, and Admin layouts with custom nav |
-| Light healthcare theme consistent | Verified | Clean slate/white palette, teal/blue accents, no dark mode default |
-| Responsive desktop & mobile layouts | Verified | Mobile drawer menus, responsive grid layouts |
-| Form labels, validation & feedback | Verified | Sign-in form validates email/password with error states |
-| Honest feature placeholders | Verified | Every future capability is transparently identified with target phase |
-| No fake live camera or fake AI claims | Verified | Pre-flight camera checks exist without fabricating live joint angles |
-| No broken imports or console errors | Verified | Aliased modules and shims compile cleanly |
+1. **In the root directory, install dependencies**:
+   ```bash
+   npm install
+   ```
+
+2. **Start the Vite development server**:
+   ```bash
+   npm run dev
+   ```
+   - Application runs at: `http://127.0.0.1:5173/`
+   - Requests to `/api/*` are automatically reverse-proxied to `http://127.0.0.1:8000/api/*`.
+
+3. **Verify TypeScript compilation and production build**:
+   ```bash
+   npm run build
+   ```
 
 ---
 
-## 5. Next Steps (Phase 2 Roadmap)
-- Implement Python FastAPI backend (`/api/v1`)
-- Establish real SQLite / PostgreSQL database schemas for Users, TherapyPlans, and Sessions
-- Connect secure JWT / OAuth2 authentication replacing the Phase 1 demonstration auth shell
-- Build REST and WebSocket endpoints for live session coordination
+## 4. Demonstration Accounts & Credentials
+
+The seed command creates clearly fictional, non-PHI demonstration accounts:
+
+| Portal | Email | Password | Role | Description |
+|---|---|---|---|---|
+| **Patient** | `patient.demo@iasyn.ai` | `ClinicalPass2026!` | `PATIENT` | Elena Rostova (Right MCA Stroke Recovery, MRN `IAS-2026-9042`) |
+| **Doctor** | `doctor.demo@iasyn.ai` | `ClinicalPass2026!` | `DOCTOR` | Dr. Marcus Vance, PT, DPT (Licence `PT-NY-98421-DEMO`) |
+| **Admin** | `admin.demo@iasyn.ai` | `ClinicalPass2026!` | `ADMIN` | Clinical Administrator (Governance & Compliance Registry) |
+
+*Note: On the Sign-In page (`/signin`), quick demonstration buttons pre-populate credentials for convenience. The authenticated role is strictly derived from the backend database user record upon login.*
+
+---
+
+## 5. Automated Tests
+
+Run the complete backend automated test suite:
+```bash
+cd backend
+.venv\Scripts\pytest -v
+```
+
+### Verified Test Cases:
+1. `test_correct_login`: Validates password hash, returns JWT token and sets secure HttpOnly cookie.
+2. `test_incorrect_password`: Rejects invalid credentials with 401 Unauthorized.
+3. `test_unregistered_email`: Rejects unregistered accounts with 401 Unauthorized.
+4. `test_get_current_user_me`: Verifies `/api/v1/auth/me` with Bearer token.
+5. `test_expired_session_handling`: Validates expired tokens are rejected with 401 Unauthorized.
+6. `test_logout`: Verifies `/api/v1/auth/logout` and clearing of session cookies.
+7. `test_patient_route_protection`: Ensures non-patients cannot access `/patients/me`.
+8. `test_doctor_route_protection`: Ensures non-doctors cannot access `/doctors/patients`.
+9. `test_admin_route_protection`: Ensures non-admins cannot access `/admin/users` or `/admin/stats`.
+10. `test_patient_cross_access_isolation`: Ensures Patient A cannot access Patient B's therapy plan (403 Forbidden).
+11. `test_doctor_unassigned_patient_access_isolation`: Ensures Doctor B cannot view records of an unassigned patient (403 Forbidden).
+12. `test_doctor_creates_plan_for_assigned_patient`: Validates prescription creation.
+13. `test_doctor_cannot_create_plan_for_unassigned_patient`: Forbids prescription for unassigned patients.
+14. `test_invalid_therapy_plan_input`: Enforces Pydantic v2 input validations (422 Unprocessable Entity).
+15. `test_doctor_approves_plan`: Verifies plan lifecycle state transition to `APPROVED`.
+
+---
+
+## 6. Regulatory & Clinical Safety Disclosure
+
+> **Clinical Notice**: IASYN AI is an investigational software platform designed for evaluation and paired clinician-directed therapy. Kinematic estimations and biofeedback telemetry do not constitute autonomous medical diagnoses. Clinical treatment plans must be authored, reviewed, and approved by a licensed healthcare professional.
